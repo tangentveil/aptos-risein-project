@@ -1,0 +1,15 @@
+    [package]
+    name = "TokenizedCarbonCredits"
+    version = "1.0.0"
+    authors = []
+
+    [addresses]
+    MyModule ='0x9a2514580850ea4a26466ccc52da42cf7c96b9f77625aa9ade7b0c73fedb2974'
+    [dev-addresses]
+
+    [dependencies.AptosFramework]
+    git = "https://github.com/aptos-labs/aptos-core.git"
+    rev = "mainnet"
+    subdir = "aptos-move/framework/aptos-framework"
+
+    [dev-dependencies]
