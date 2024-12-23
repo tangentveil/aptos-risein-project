@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fitness Goal Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.1/dist/web3.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      h2 {
+        text-align: center;
+      }
+      input,
+      button {
+        width: 100%;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        font-size: 16px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      .goal-list {
+        margin-top: 20px;
+      }
+      .goal-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Fitness Goal Tracker</h2>
+      <div>
+        <h3>Create a Fitness Goal</h3>
+        <input
+          type="text"
+          id="goalDescription"
+          placeholder="Goal Description"
+        />
+        <input
+          type="number"
+          id="targetValue"
+          placeholder="Target Value (e.g., steps, calories)"
+        />
+        <input type="number" id="tokenReward" placeholder="Token Reward" />
+        <button onclick="createGoal()">Create Goal</button>
+      </div>
+
+      <div class="goal-list">
+        <h3>Your Goals</h3>
+        <ul id="goalList"></ul>
+      </div>
+
+      <div>
+        <h3>Update Goal Progress</h3>
+        <input type="number" id="goalId" placeholder="Goal ID" />
+        <input type="number" id="progressValue" placeholder="Progress Value" />
+        <button onclick="updateGoalProgress()">Update Progress</button>
+      </div>
+
+      <div>
+        <h3>Your Token Balance</h3>
+        <p id="tokenBalance">Loading...</p>
+      </div>
+    </div>
+
+    <script>
+      // Connect to Ethereum provider (MetaMask)
+      if (window.ethereum) {
+        var web3 = new Web3(window.ethereum);
+        ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => {
+          console.log("Connected account:", accounts[0]);
+          init(accounts[0]);
+        });
+      } else {
+        alert("Please install MetaMask or use an Ethereum-compatible browser.");
+      }
+
+      let contract;
+      let userAddress;
+
+      const contractAddress = "0xB0B99Cad6A6C1c1d1cD8c4F7B999Aa47830DEF04"; // Replace with your deployed contract address
+      const contractABI = [
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "uint256",
+              name: "goalId",
+              type: "uint256",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "participant",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "string",
+              name: "goalDescription",
+              type: "string",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "targetValue",
+              type: "uint256",
+            },
+          ],
+          name: "GoalCreated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "uint256",
+              name: "goalId",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "newProgress",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "bool",
+              name: "isCompleted",
+              type: "bool",
+            },
+          ],
+          name: "GoalProgressUpdated",
+          type: "event",
+        },
+        {
+          inputs: [
+            {
+              internalType: "string",
+              name: "_goalDescription",
+              type: "string",
+            },
+            {
+              internalType: "uint256",
+              name: "_targetValue",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_tokenReward",
+              type: "uint256",
+            },
+          ],
+          name: "createFitnessGoal",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "fitnessGoals",
+          outputs: [
+            {
+              internalType: "address",
+              name: "participant",
+              type: "address",
+            },
+            {
+              internalType: "string",
+              name: "goalDescription",
+              type: "string",
+            },
+            {
+              internalType: "uint256",
+              name: "targetValue",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "currentProgress",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "tokenReward",
+              type: "uint256",
+            },
+            {
+              internalType: "bool",
+              name: "isCompleted",
+              type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          name: "tokenBalances",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_goalId",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_progressValue",
+              type: "uint256",
+            },
+          ],
+          name: "updateGoalProgress",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+      ];
+
+      function init(address) {
+        userAddress = address;
+        contract = new web3.eth.Contract(contractABI, contractAddress);
+        loadGoals();
+        loadBalance();
+      }
+
+      // Create Fitness Goal
+      async function createGoal() {
+        const goalDescription =
+          document.getElementById("goalDescription").value;
+        const targetValue = document.getElementById("targetValue").value;
+        const tokenReward = document.getElementById("tokenReward").value;
+
+        if (!goalDescription || !targetValue || !tokenReward) {
+          alert("Please fill in all fields.");
+          return;
+        }
+
+        try {
+          await contract.methods
+            .createFitnessGoal(goalDescription, targetValue, tokenReward)
+            .send({ from: userAddress });
+          alert("Fitness goal created!");
+          loadGoals();
+        } catch (error) {
+          console.error(error);
+          alert("Failed to create goal.");
+        }
+      }
+
+      // Update Goal Progress
+      async function updateGoalProgress() {
+        const goalId = document.getElementById("goalId").value;
+        const progressValue = document.getElementById("progressValue").value;
+
+        if (!goalId || !progressValue) {
+          alert("Please fill in both fields.");
+          return;
+        }
+
+        try {
+          await contract.methods
+            .updateGoalProgress(goalId, progressValue)
+            .send({ from: userAddress });
+          alert("Goal progress updated!");
+          loadGoals();
+          loadBalance();
+        } catch (error) {
+          console.error(error);
+          alert("Failed to update progress.");
+        }
+      }
+
+      // Load user's fitness goals
+      async function loadGoals() {
+        const goalsContainer = document.getElementById("goalList");
+        goalsContainer.innerHTML = "";
+
+        const goals = await contract.methods.fitnessGoals().call();
+
+        goals.forEach((goal, index) => {
+          const li = document.createElement("li");
+          li.classList.add("goal-item");
+          li.textContent = `${goal.goalDescription} - Progress: ${
+            goal.currentProgress
+          }/${goal.targetValue} - ${
+            goal.isCompleted ? "Completed" : "In Progress"
+          }`;
+          goalsContainer.appendChild(li);
+        });
+      }
+
+      // Load token balance
+      async function loadBalance() {
+        const balance = await contract.methods
+          .tokenBalances(userAddress)
+          .call();
+        document.getElementById(
+          "tokenBalance"
+        ).textContent = `Token Balance: ${balance}`;
+      }
+    </script>
+  </body>
+</html>
